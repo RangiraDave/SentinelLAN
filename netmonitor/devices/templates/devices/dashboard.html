@@ -3,20 +3,20 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SentinelLAN | Network dashboard</title>
+  <title>NetWatch | Network dashboard</title>
   <link rel="stylesheet" href="{% static 'devices/dashboard.css' %}">
 </head>
 <body>
   <main class="shell">
     <header class="topbar">
-      <a class="brand" href="{% url 'dashboard' %}"><b>S</b> Sentinel<span>LAN</span></a>
+      <a class="brand" href="{% url 'dashboard' %}"><b>S</b> Network<span>WATCH</span></a>
       <div class="actions"><span class="ready"><i></i> Monitoring ready</span><form action="{% url 'run_network_scan' %}" method="post">{% csrf_token %}<button type="submit">Run network scan <b>→</b></button></form></div>
     </header>
 
     {% if messages %}<section class="messages" aria-live="polite">{% for message in messages %}<p class="message {{ message.tags }}">{{ message }}</p>{% endfor %}</section>{% endif %}
 
     <section class="hero">
-      <div><p class="eyebrow">Local network intelligence</p><h1>Your network,<br><em>in clear view.</em></h1><p>Discover connected devices, keep trusted equipment visible, and act quickly when something new joins your LAN.</p></div>
+      <div><p class="eyebrow">Local network monitoring tool</p><h1>Your network,<br><em>in clear view.</em></h1><p>Discover connected devices, keep trusted equipment visible, and act quickly when something new joins your LAN.</p></div>
       <div class="online-orb"><strong>{{ online_count }}</strong><span>devices online<br>right now</span></div>
     </section>
 
