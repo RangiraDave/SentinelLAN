@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+.venv/
+
+# Local Django configuration and data
+netmonitor/.env
+netmonitor/db.sqlite3
+
+# Test and tooling output
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
