@@ -1,0 +1,55 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SentinelLAN | Network dashboard</title>
+  <link rel="stylesheet" href="{% static 'devices/dashboard.css' %}">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="{% url 'dashboard' %}"><b>S</b> Sentinel<span>LAN</span></a>
+      <div class="actions"><span class="ready"><i></i> Monitoring ready</span><form action="{% url 'run_network_scan' %}" method="post">{% csrf_token %}<button type="submit">Run network scan <b>→</b></button></form></div>
+    </header>
+
+    {% if messages %}<section class="messages" aria-live="polite">{% for message in messages %}<p class="message {{ message.tags }}">{{ message }}</p>{% endfor %}</section>{% endif %}
+
+    <section class="hero">
+      <div><p class="eyebrow">Local network intelligence</p><h1>Your network,<br><em>in clear view.</em></h1><p>Discover connected devices, keep trusted equipment visible, and act quickly when something new joins your LAN.</p></div>
+      <div class="online-orb"><strong>{{ online_count }}</strong><span>devices online<br>right now</span></div>
+    </section>
+
+    <section class="metrics" aria-label="Network summary">
+      <article><span>Inventory</span><strong>{{ device_count }}</strong><small>known device{{ device_count|pluralize }}</small></article>
+      <article class="green"><span>Online</span><strong>{{ online_count }}</strong><small>visible in last scan</small></article>
+      <article class="blue"><span>Trusted</span><strong>{{ trusted_count }}</strong><small>approved device{{ trusted_count|pluralize }}</small></article>
+      <article class="red"><span>New device alerts</span><strong>{{ new_device_alert_count }}</strong><small>{% if new_device_alert_count %}review recommended{% else %}all clear{% endif %}</small></article>
+    </section>
+
+    <section class="grid">
+      <section class="panel">
+        <header class="panel-head"><div><p class="eyebrow">Device inventory</p><h2>Connected devices</h2></div><span class="chip">{{ device_count }} total</span></header>
+        {% if devices %}
+          <div class="scroll"><table><thead><tr><th>Device</th><th>Address</th><th>Trust</th><th>Last seen</th><th>Status</th></tr></thead><tbody>
+          {% for device in devices %}<tr>
+            <td><strong>{{ device.hostname|default:"Unnamed device" }}</strong><code>{{ device.mac_address }}</code></td>
+            <td><strong>{{ device.ip_address }}</strong>{% if device.vendor %}<small>{{ device.vendor }}</small>{% endif %}</td>
+            <td>{% if device.trusted %}<span class="tag trusted">Trusted</span>{% else %}<span class="tag unknown">Unknown</span>{% endif %}</td>
+            <td><time datetime="{{ device.last_seen|date:'c' }}">{{ device.last_seen|timesince }} ago</time></td>
+            <td>{% if device.online %}<span class="status online"><i></i>Online</span>{% else %}<span class="status offline"><i></i>Offline</span>{% endif %}</td>
+          </tr>{% endfor %}</tbody></table></div>
+        {% else %}<div class="empty"><b>⌁</b><h3>No devices discovered yet</h3><p>Run your first network scan to build the inventory.</p></div>{% endif %}
+      </section>
+
+      <aside class="panel alerts">
+        <header class="panel-head"><div><p class="eyebrow">Attention needed</p><h2>Open alerts</h2></div>{% if new_device_alert_count %}<span class="badge">{{ new_device_alert_count }}</span>{% endif %}</header>
+        {% if alerts %}<div class="alert-list">{% for alert in alerts %}<article class="alert">
+          <b class="alert-icon">{% if alert.alert_type == 'NEW_DEVICE' %}+{% else %}!{% endif %}</b><div><span>{{ alert.get_alert_type_display }}</span><p>{{ alert.message }}</p><time datetime="{{ alert.created_at|date:'c' }}">{{ alert.created_at|timesince }} ago</time><form action="{% url 'resolve_alert' alert.pk %}" method="post">{% csrf_token %}<button type="submit">Mark resolved</button></form></div>
+        </article>{% endfor %}</div>
+        {% else %}<div class="empty"><b>✓</b><h3>Nothing needs attention</h3><p>New device and status alerts will appear here.</p></div>{% endif %}
+      </aside>
+    </section>
+  </main>
+</body>
+</html>
