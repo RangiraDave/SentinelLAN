@@ -2,6 +2,18 @@ from django.db import models
 
 
 class Device(models.Model):
+    DEVICE_TYPES = [
+        ("unknown", "Unknown"),
+        ("computer", "Computer"),
+        ("phone", "Phone"),
+        ("tablet", "Tablet"),
+        ("router", "Router"),
+        ("printer", "Printer"),
+        ("camera", "Camera"),
+        ("smart_home", "Smart-home device"),
+        ("other", "Other"),
+    ]
+
     hostname = models.CharField(max_length=255, blank=True)
 
     ip_address = models.GenericIPAddressField()
@@ -14,6 +26,12 @@ class Device(models.Model):
     vendor = models.CharField(
         max_length=255,
         blank=True
+    )
+
+    device_type = models.CharField(
+        max_length=30,
+        choices=DEVICE_TYPES,
+        default="unknown",
     )
 
     first_seen = models.DateTimeField(

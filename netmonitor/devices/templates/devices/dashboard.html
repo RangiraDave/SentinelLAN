@@ -3,53 +3,73 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NetWatch | Network dashboard</title>
-  <link rel="stylesheet" href="{% static 'devices/dashboard.css' %}">
+  <title>NetWatch | Dashboard</title><link rel="stylesheet" href="{% static 'devices/dashboard.css' %}">
 </head>
-<body>
+<body data-auto-scan="{{ monitoring.auto_scan_enabled|yesno:'true,false' }}" data-interval="{{ monitoring.scan_interval_seconds }}">
   <main class="shell">
     <header class="topbar">
-      <a class="brand" href="{% url 'dashboard' %}"><b>S</b> Network<span>WATCH</span></a>
-      <div class="actions"><span class="ready"><i></i> Monitoring ready</span><form action="{% url 'run_network_scan' %}" method="post">{% csrf_token %}<button type="submit">Run network scan <b>→</b></button></form></div>
+      <a class="brand" href="{% url 'dashboard' %}"><b>N</b> Net<span>Watch</span></a>
+      <div class="actions">
+        <form action="{% url 'toggle_auto_scan' %}" method="post">{% csrf_token %}
+          {% if monitoring.auto_scan_enabled %}<input type="hidden" name="auto_scan" value="false"><button class="mode auto" type="submit">Auto scan on</button>
+          {% else %}<input type="hidden" name="auto_scan" value="true"><button class="mode" type="submit">Enable auto scan</button>{% endif %}
+        </form>
+        <form action="{% url 'run_network_scan' %}" method="post">{% csrf_token %}<button type="submit">Run scan <b>&rarr;</b></button></form>
+        <form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="logout" type="submit">Sign out</button></form>
+      </div>
     </header>
 
     {% if messages %}<section class="messages" aria-live="polite">{% for message in messages %}<p class="message {{ message.tags }}">{{ message }}</p>{% endfor %}</section>{% endif %}
 
     <section class="hero">
-      <div><p class="eyebrow">Local network monitoring tool</p><h1>Your network,<br><em>in clear view.</em></h1><p>Discover connected devices, keep trusted equipment visible, and act quickly when something new joins your LAN.</p></div>
+      <div><p class="eyebrow">Secure local network monitoring</p><h1>Know what belongs<br><em>on your network.</em></h1><p>Newly discovered devices remain in review until you name, classify, and approve them as known devices.</p></div>
       <div class="online-orb"><strong>{{ online_count }}</strong><span>devices online<br>right now</span></div>
     </section>
 
     <section class="metrics" aria-label="Network summary">
-      <article><span>Inventory</span><strong>{{ device_count }}</strong><small>known device{{ device_count|pluralize }}</small></article>
-      <article class="green"><span>Online</span><strong>{{ online_count }}</strong><small>visible in last scan</small></article>
-      <article class="blue"><span>Trusted</span><strong>{{ trusted_count }}</strong><small>approved device{{ trusted_count|pluralize }}</small></article>
-      <article class="red"><span>New device alerts</span><strong>{{ new_device_alert_count }}</strong><small>{% if new_device_alert_count %}review recommended{% else %}all clear{% endif %}</small></article>
+      <article><span>Known devices</span><strong>{{ known_count }}</strong><small>approved inventory</small></article>
+      <article class="green"><span>Online now</span><strong>{{ online_count }}</strong><small>visible in last scan</small></article>
+      <article class="blue"><span>Awaiting review</span><strong>{{ discovered_count }}</strong><small>unapproved devices</small></article>
+      <article class="red"><span>New device alerts</span><strong>{{ new_device_alert_count }}</strong><small>{% if monitoring.auto_scan_enabled %}auto scan is active{% else %}manual scan mode{% endif %}</small></article>
     </section>
+
+    <section class="automation-note {% if monitoring.auto_scan_enabled %}enabled{% endif %}">
+      <strong>{% if monitoring.auto_scan_enabled %}Automatic scanning is on{% else %}Manual scanning is on{% endif %}</strong>
+      <span>{% if monitoring.auto_scan_enabled %}NetWatch checks your LAN every {{ monitoring.scan_interval_seconds }} seconds while the monitor service is running. New devices appear below and raise an alert.{% else %}Use Run scan when you want to refresh discovery, or enable automatic scanning for continuous checks.{% endif %}</span>
+    </section>
+
+    {% if discovered_devices %}
+    <section class="review-panel">
+      <header class="panel-head"><div><p class="eyebrow">Approval queue</p><h2>Newly discovered devices</h2></div><span class="badge">{{ discovered_count }}</span></header>
+      <div class="review-grid">{% for device in discovered_devices %}<article class="device-card">
+        <span class="tag unknown">Unknown device</span><h3>{{ device.hostname|default:"Needs a name" }}</h3>
+        <dl><div><dt>IP address</dt><dd>{{ device.ip_address }}</dd></div><div><dt>MAC address</dt><dd><code>{{ device.mac_address }}</code></dd></div><div><dt>Detected type</dt><dd>{{ device.get_device_type_display }}</dd></div></dl>
+        <a href="{% url 'review_device' device.pk %}">Review and add to known devices &rarr;</a>
+      </article>{% endfor %}</div>
+    </section>{% endif %}
 
     <section class="grid">
       <section class="panel">
-        <header class="panel-head"><div><p class="eyebrow">Device inventory</p><h2>Connected devices</h2></div><span class="chip">{{ device_count }} total</span></header>
-        {% if devices %}
-          <div class="scroll"><table><thead><tr><th>Device</th><th>Address</th><th>Trust</th><th>Last seen</th><th>Status</th></tr></thead><tbody>
-          {% for device in devices %}<tr>
-            <td><strong>{{ device.hostname|default:"Unnamed device" }}</strong><code>{{ device.mac_address }}</code></td>
-            <td><strong>{{ device.ip_address }}</strong>{% if device.vendor %}<small>{{ device.vendor }}</small>{% endif %}</td>
-            <td>{% if device.trusted %}<span class="tag trusted">Trusted</span>{% else %}<span class="tag unknown">Unknown</span>{% endif %}</td>
-            <td><time datetime="{{ device.last_seen|date:'c' }}">{{ device.last_seen|timesince }} ago</time></td>
-            <td>{% if device.online %}<span class="status online"><i></i>Online</span>{% else %}<span class="status offline"><i></i>Offline</span>{% endif %}</td>
-          </tr>{% endfor %}</tbody></table></div>
-        {% else %}<div class="empty"><b>⌁</b><h3>No devices discovered yet</h3><p>Run your first network scan to build the inventory.</p></div>{% endif %}
+        <header class="panel-head"><div><p class="eyebrow">Approved inventory</p><h2>Known devices</h2></div><span class="chip">{{ known_count }} known</span></header>
+        {% if known_devices %}<div class="scroll"><table><thead><tr><th>Name</th><th>Type</th><th>Address</th><th>Last seen</th><th>Status</th><th></th></tr></thead><tbody>
+          {% for device in known_devices %}<tr><td><strong>{{ device.hostname|default:"Unnamed device" }}</strong><code>{{ device.mac_address }}</code></td><td>{{ device.get_device_type_display }}</td><td><strong>{{ device.ip_address }}</strong>{% if device.vendor %}<small>{{ device.vendor }}</small>{% endif %}</td><td><time datetime="{{ device.last_seen|date:'c' }}">{{ device.last_seen|timesince }} ago</time></td><td>{% if device.online %}<span class="status online"><i></i>Online</span>{% else %}<span class="status offline"><i></i>Offline</span>{% endif %}</td><td><a class="table-link" href="{% url 'review_device' device.pk %}">Edit</a></td></tr>{% endfor %}
+        </tbody></table></div>{% else %}<div class="empty"><b>+</b><h3>No known devices yet</h3><p>Review a discovered device to name it and add it to your inventory.</p></div>{% endif %}
       </section>
-
-      <aside class="panel alerts">
-        <header class="panel-head"><div><p class="eyebrow">Attention needed</p><h2>Open alerts</h2></div>{% if new_device_alert_count %}<span class="badge">{{ new_device_alert_count }}</span>{% endif %}</header>
-        {% if alerts %}<div class="alert-list">{% for alert in alerts %}<article class="alert">
-          <b class="alert-icon">{% if alert.alert_type == 'NEW_DEVICE' %}+{% else %}!{% endif %}</b><div><span>{{ alert.get_alert_type_display }}</span><p>{{ alert.message }}</p><time datetime="{{ alert.created_at|date:'c' }}">{{ alert.created_at|timesince }} ago</time><form action="{% url 'resolve_alert' alert.pk %}" method="post">{% csrf_token %}<button type="submit">Mark resolved</button></form></div>
-        </article>{% endfor %}</div>
-        {% else %}<div class="empty"><b>✓</b><h3>Nothing needs attention</h3><p>New device and status alerts will appear here.</p></div>{% endif %}
+      <aside class="panel alerts"><header class="panel-head"><div><p class="eyebrow">Attention needed</p><h2>Open alerts</h2></div>{% if new_device_alert_count %}<span class="badge">{{ new_device_alert_count }}</span>{% endif %}</header>
+        {% if alerts %}<div class="alert-list">{% for alert in alerts %}<article class="alert"><b class="alert-icon">{% if alert.alert_type == 'NEW_DEVICE' %}+{% else %}!{% endif %}</b><div><span>{{ alert.get_alert_type_display }}</span><p>{{ alert.message }}</p><time datetime="{{ alert.created_at|date:'c' }}">{{ alert.created_at|timesince }} ago</time><form action="{% url 'resolve_alert' alert.pk %}" method="post">{% csrf_token %}<button type="submit">Mark resolved</button></form></div></article>{% endfor %}</div>
+        {% else %}<div class="empty"><b>OK</b><h3>Nothing needs attention</h3><p>New-device and status alerts will appear here.</p></div>{% endif %}
       </aside>
     </section>
   </main>
+  <script>
+    if (document.body.dataset.autoScan === "true") {
+      const interval = Number(document.body.dataset.interval) * 1000;
+      const token = document.querySelector("[name=csrfmiddlewaretoken]").value;
+      window.setInterval(async () => {
+        const response = await fetch("{% url 'run_network_scan' %}", {method: "POST", headers: {"X-CSRFToken": token, "X-Requested-With": "XMLHttpRequest"}});
+        if (response.ok) window.location.reload();
+      }, interval);
+    }
+  </script>
 </body>
 </html>
