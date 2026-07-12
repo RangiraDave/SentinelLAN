@@ -1,6 +1,6 @@
-from netmonitor.scanner.network_info import get_network_info
-from netmonitor.scanner.arp_scanner import scan_network
-from netmonitor.scanner.discovery import process_scan
+from scanner.network_info import get_network_info
+from scanner.arp_scanner import scan_network
+from scanner.discovery import process_scan
 
 
 def run_scan():
