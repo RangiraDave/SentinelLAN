@@ -94,7 +94,15 @@ def toggle_auto_scan(request):
 @require_http_methods(["GET", "POST"])
 def review_device(request, device_id):
     device = get_object_or_404(Device, pk=device_id)
-    form = DeviceReviewForm(request.POST or None, instance=device)
+    form = DeviceReviewForm(
+        request.POST or None,
+        instance=device,
+        initial={
+            "hostname": device.hostname or device.ip_address,
+            "vendor": device.vendor or "",
+            "device_type": device.device_type or "unknown",
+        },
+    )
     if request.method == "POST" and form.is_valid():
         device = form.save()
         if device.trusted:
