@@ -75,7 +75,7 @@ def run_network_scan(request):
     else:
         if request.headers.get("x-requested-with") == "XMLHttpRequest":
             return JsonResponse({"discovered": len(scan_results)})
-        messages.success(request, f"Scan complete: {len(scan_results)} device(s) discovered.")
+        messages.success(request, f"Scan complete: {scan_results} device(s) discovered.")
     return redirect("dashboard")
 
 
