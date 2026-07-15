@@ -1,0 +1,32 @@
+{% load static %}
+<div id="notifications-panel" class="popup-overlay" role="dialog" aria-modal="true" aria-label="Notifications">
+  <div class="popup-card">
+    <div class="popup-head">
+      <div>
+        <p class="eyebrow">Notifications</p>
+        <h3>Alert center</h3>
+      </div>
+      <button type="button" class="popup-close" aria-label="Close notifications">×</button>
+    </div>
+    <div class="popup-body">
+      {% if alerts %}
+        <div class="popup-list">
+          {% for alert in alerts %}
+            <article class="popup-item accent">
+              <div>
+                <strong>{{ alert.get_alert_type_display }}</strong>
+                <p>{{ alert.message }}</p>
+              </div>
+              <form action="{% url 'resolve_alert' alert.pk %}" method="post">{% csrf_token %}<button type="submit" class="tiny-btn">Resolve</button></form>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="popup-empty">
+          <h4>All clear</h4>
+          <p>No new notifications right now.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>

@@ -53,5 +53,20 @@ class ProcessScanTests(TestCase):
         self.assertEqual(offline_alerts.count(), 1)
         self.assertIn("went offline", offline_alerts.first().message)
 
+    def test_duplicate_mac_responses_are_deduplicated_in_scan(self):
+        device = Device.objects.create(ip_address="192.168.0.14", mac_address="30:e1:71:6b:2e:e7", online=False)
+
+        new_devices, updated_devices = process_scan([
+            {"ip": "192.168.0.14", "mac": "30:e1:71:6b:2e:e7"},
+            {"ip": "192.168.0.17", "mac": "30:e1:71:6b:2e:e7"},
+        ])
+
+        self.assertEqual(len(new_devices), 0)
+        self.assertEqual(len(updated_devices), 1)
+        device.refresh_from_db()
+        self.assertEqual(device.ip_address, "192.168.0.17")
+        self.assertTrue(device.online)
+        self.assertEqual(Alert.objects.count(), 0)
+
     def test_lookup_vendor_returns_common_vendor_name_for_known_oui(self):
         self.assertIn("TP-LINK", lookup_vendor("50:3e:aa:0a:15:79"))

@@ -12,7 +12,7 @@ from scanner.models import MonitoringSettings
 from scanner.scan_manager import run_scan
 
 from .forms import DeviceReviewForm
-from .models import Device
+from .models import Device, UserActivity
 
 
 def signup(request):
@@ -44,13 +44,12 @@ def logout_view(request):
     return redirect("login")
 
 
-@login_required
-def dashboard(request):
+def _get_dashboard_context(request):
     known_devices = Device.objects.filter(trusted=True).order_by("-online", "-last_seen")
     discovered_devices = Device.objects.filter(trusted=False).order_by("-last_seen")
     unresolved_alerts = Alert.objects.filter(resolved=False).select_related("device")
-    monitoring = MonitoringSettings.get_solo()
-    return render(request, "devices/dashboard.html", {
+    recent_activities = UserActivity.objects.select_related("user").order_by("-timestamp")[:50]
+    return {
         "known_devices": known_devices,
         "discovered_devices": discovered_devices,
         "alerts": unresolved_alerts.order_by("-created_at")[:8],
@@ -58,8 +57,16 @@ def dashboard(request):
         "discovered_count": discovered_devices.count(),
         "online_count": Device.objects.filter(online=True).count(),
         "new_device_alert_count": unresolved_alerts.filter(alert_type="NEW_DEVICE").count(),
-        "monitoring": monitoring,
-    })
+        "total_count": Device.objects.count(),
+        "recent_activities": recent_activities,
+    }
+
+
+@login_required
+def dashboard(request):
+    context = _get_dashboard_context(request)
+    context["monitoring"] = MonitoringSettings.get_solo()
+    return render(request, "devices/dashboard.html", context)
 
 
 @login_required
@@ -73,9 +80,15 @@ def run_network_scan(request):
             return JsonResponse({"error": str(error)}, status=500)
         messages.error(request, f"Scan could not be completed: {error}")
     else:
+        if isinstance(scan_results, tuple):
+            new_devices, updated_devices = scan_results
+            discovered_count = len(new_devices) + len(updated_devices)
+        else:
+            discovered_count = len(scan_results or [])
+
         if request.headers.get("x-requested-with") == "XMLHttpRequest":
-            return JsonResponse({"discovered": len(scan_results)})
-        messages.success(request, f"Scan complete: {len(scan_results)} device(s) discovered.")
+            return JsonResponse({"discovered": discovered_count})
+        messages.success(request, f"Scan complete: {discovered_count} device(s) discovered.")
     return redirect("dashboard")
 
 
@@ -110,7 +123,18 @@ def review_device(request, device_id):
         else:
             messages.success(request, "Device details updated.")
         return redirect("dashboard")
-    return render(request, "devices/review_device.html", {"device": device, "form": form})
+
+    unresolved_alerts = Alert.objects.filter(resolved=False).select_related("device")
+    recent_activities = UserActivity.objects.select_related("user").order_by("-timestamp")[:50]
+    context = {
+        "device": device,
+        "form": form,
+        "monitoring": MonitoringSettings.get_solo(),
+        "alerts": unresolved_alerts.order_by("-created_at")[:8],
+        "new_device_alert_count": unresolved_alerts.filter(alert_type="NEW_DEVICE").count(),
+        "recent_activities": recent_activities,
+    }
+    return render(request, "devices/review_device.html", context)
 
 
 @login_required

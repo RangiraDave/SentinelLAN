@@ -1,0 +1,47 @@
+{% load static %}
+<div id="activity-panel" class="popup-overlay" role="dialog" aria-modal="true" aria-label="User activities">
+  <div class="popup-card wide">
+    <div class="popup-head">
+      <div>
+        <p class="eyebrow">User activities</p>
+        <h3>Recent activity timeline</h3>
+      </div>
+      <button type="button" class="popup-close" aria-label="Close activity timeline">×</button>
+    </div>
+    <div class="popup-body">
+      {% if recent_activities %}
+        <div class="activity-table-wrap">
+          <table class="activity-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>User</th>
+                <th>Address</th>
+                <th>Path</th>
+                <th>Method</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for activity in recent_activities %}
+                <tr>
+                  <td><time datetime="{{ activity.timestamp|date:'c' }}">{{ activity.timestamp|date:"M d, Y H:i" }}</time></td>
+                  <td>{{ activity.user }}</td>
+                  <td>{{ activity.ip_address|default:"—" }}</td>
+                  <td>{{ activity.path|default:"—" }}</td>
+                  <td>{{ activity.method|default:"—" }}</td>
+                  <td>{{ activity.action|default:"—" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="popup-empty">
+          <h4>No activity yet</h4>
+          <p>Your recent actions will appear here.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>

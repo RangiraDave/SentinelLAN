@@ -7,7 +7,7 @@ from django.urls import reverse
 from alerts.models import Alert
 from scanner.models import MonitoringSettings
 
-from .models import Device
+from .models import Device, UserActivity
 
 
 class DashboardTests(TestCase):
@@ -28,6 +28,34 @@ class DashboardTests(TestCase):
         self.assertContains(response, "New device detected")
         self.assertEqual(response.context["known_count"], 1)
 
+    def test_dashboard_renders_notifications_and_activity_popups(self):
+        UserActivity.objects.create(user=self.user, path="/", method="GET", action="Viewed dashboard")
+        response = self.client.get(reverse("dashboard"))
+        self.assertContains(response, "Notifications")
+        self.assertContains(response, "User activities")
+        self.assertContains(response, "View all activity")
+
+    def test_dashboard_activity_popup_shows_admin_style_columns(self):
+        activity = UserActivity.objects.create(
+            user=self.user,
+            ip_address="192.168.1.10",
+            path="/devices/1/",
+            method="POST",
+            action="Updated device",
+        )
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertContains(response, "Timestamp")
+        self.assertContains(response, "User")
+        self.assertContains(response, "Address")
+        self.assertContains(response, "Path")
+        self.assertContains(response, "Method")
+        self.assertContains(response, "Action")
+        self.assertContains(response, str(activity.user))
+        self.assertContains(response, activity.path)
+        self.assertContains(response, activity.method)
+        self.assertContains(response, activity.action)
+
     def test_reviewing_device_can_add_it_to_known_inventory(self):
         discovered = Device.objects.create(ip_address="10.10.20.44", mac_address="11:22:33:44:55:66")
         response = self.client.post(reverse("review_device", args=[discovered.pk]), {
@@ -44,6 +72,16 @@ class DashboardTests(TestCase):
         response = self.client.post(reverse("run_network_scan"))
         self.assertRedirects(response, reverse("dashboard"))
         self.assertIsNotNone(MonitoringSettings.get_solo().last_scan_at)
+        mock_run_scan.assert_called_once()
+
+    @patch("devices.views.run_scan", return_value=([Device(ip_address="10.0.0.11", mac_address="11:22:33:44:55:66"), Device(ip_address="10.0.0.12", mac_address="11:22:33:44:55:67")], [Device(ip_address="10.0.0.13", mac_address="11:22:33:44:55:68")]))
+    def test_scan_action_reports_actual_discovered_device_count(self, mock_run_scan):
+        Device.objects.create(ip_address="10.0.0.11", mac_address="11:22:33:44:55:66")
+        Device.objects.create(ip_address="10.0.0.12", mac_address="11:22:33:44:55:67")
+        Device.objects.create(ip_address="10.0.0.13", mac_address="11:22:33:44:55:68")
+
+        response = self.client.post(reverse("run_network_scan"), follow=True)
+        self.assertContains(response, "Scan complete: 3 device(s) discovered.")
         mock_run_scan.assert_called_once()
 
     def test_auto_scan_can_be_enabled_from_dashboard(self):

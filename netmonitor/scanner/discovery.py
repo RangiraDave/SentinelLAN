@@ -79,6 +79,17 @@ def process_scan(scan_results):
     if not scan_results:
         return
 
+    # Deduplicate responses by IP address so each connected endpoint is counted separately.
+    unique_results = {}
+    for item in scan_results:
+        ip_address = item.get("ip", "")
+        mac_address = normalize_mac_address(item.get("mac", ""))
+        if not ip_address or not mac_address:
+            continue
+        unique_results[ip_address] = item
+
+    scan_results = list(unique_results.values())
+
     new_devices = []
     updated_devices = []
 
@@ -93,12 +104,11 @@ def process_scan(scan_results):
         vendor = lookup_vendor(mac_address)
         device_type = classify_device_type(hostname, vendor, mac_address)
 
-        existing_device = Device.objects.filter(mac_address=mac_address).first()
+        existing_device = Device.objects.filter(ip_address=ip_address).first()
 
         if existing_device:
-            # Update existing device
-            was_offline = not existing_device.online
-            existing_device.ip_address = ip_address
+            old_mac_address = existing_device.mac_address
+            existing_device.mac_address = mac_address
             existing_device.hostname = hostname or existing_device.hostname
             existing_device.vendor = vendor or existing_device.vendor
             existing_device.device_type = device_type if device_type != "unknown" else existing_device.device_type
@@ -106,22 +116,24 @@ def process_scan(scan_results):
             existing_device.save()
             updated_devices.append(existing_device)
 
-            # Alert if device came back online
-            if was_offline:
+            if old_mac_address and old_mac_address != mac_address:
                 Alert.objects.create(
                     device=existing_device,
-                    alert_type="device_online",
-                    message=f"Device {existing_device.hostname or existing_device.ip_address} came back online"
+                    alert_type="MAC_CHANGED",
+                    message=(
+                        f"Device at {ip_address} changed MAC from {old_mac_address} "
+                        f"to {mac_address}."
+                    )
                 )
         else:
-            # Create new device
+            # Create new device with enriched metadata
             device = Device.objects.create(
                 ip_address=ip_address,
                 mac_address=mac_address,
                 hostname=hostname,
-                # vendor=vendor,
-                # device_type=device_type,
-                # online=True
+                vendor=vendor,
+                device_type=device_type,
+                online=True
             )
             new_devices.append(device)
 
@@ -134,9 +146,9 @@ def process_scan(scan_results):
             logger.info(f"New device discovered: {mac_address} at {ip_address}")
 
     # Mark devices as offline if not seen in this scan
-    seen_macs = {item.get("mac", "") for item in scan_results if item.get("mac")}
+    seen_ips = {item.get("ip", "") for item in scan_results if item.get("ip")}
     offline_devices = Device.objects.filter(online=True).exclude(
-        mac_address__in=[normalize_mac_address(mac) for mac in seen_macs if mac]
+        ip_address__in=[ip for ip in seen_ips if ip]
     )
 
     for device in offline_devices:

@@ -23,14 +23,26 @@
 
     <section class="hero">
       <div><p class="eyebrow">Secure local network monitoring</p><h1>What belongs on your network.</em></h1><p>Newly discovered devices remain in review until you name, classify, and approve them as known devices.</p></div>
-      <div class="online-orb"><strong>{{ online_count }}</strong><span>devices online<br>right now</span></div>
+      <div class="hero-side">
+        <button type="button" class="hero-action notifications" data-modal-target="notifications-panel">
+          <span class="hero-action-label">Notifications</span>
+          <strong>{{ new_device_alert_count }}</strong>
+        </button>
+        <div class="online-orb"><strong>{{ online_count }}</strong><span>devices online<br>right now</span></div>
+      </div>
     </section>
 
     <section class="metrics" aria-label="Network summary">
       <article><span>Known devices</span><strong>{{ known_count }}</strong><small>approved inventory</small></article>
-      <article class="green"><span>Online now</span><strong>{{ online_count }}</strong><small>visible in last scan</small></article>
       <article class="blue"><span>Awaiting review</span><strong>{{ discovered_count }}</strong><small>unapproved devices</small></article>
-      <article class="red"><span>New device alerts</span><strong>{{ new_device_alert_count }}</strong><small>{% if monitoring.auto_scan_enabled %}auto scan is active{% else %}manual scan mode{% endif %}</small></article>
+      <!-- <article class="red"><span>New device alerts</span><strong>{{ new_device_alert_count }}</strong><small>{% if monitoring.auto_scan_enabled %}auto scan is active{% else %}manual scan mode{% endif %}</small></article> -->
+    </section>
+
+    <section class="secondary-actions">
+      <button type="button" class="secondary-action" data-modal-target="activity-panel">
+        <span>User activities</span>
+        <small>View all activity</small>
+      </button>
     </section>
 
     <section class="automation-note {% if monitoring.auto_scan_enabled %}enabled{% endif %}">
@@ -40,7 +52,7 @@
 
     {% if discovered_devices %}
     <section class="review-panel">
-      <header class="panel-head"><div><p class="eyebrow">Approval queue</p><h2>Newly discovered devices</h2></div><span class="badge">{{ discovered_count }}</span></header>
+      <header class="panel-head"><div><p class="eyebrow">Newly discovered devices</p></div><span class="badge">{{ discovered_count }}</span></header>
       <div class="review-grid">{% for device in discovered_devices %}<article class="device-card">
         <span class="tag unknown">{{ device.get_device_type_display }}</span><h3>{{ device.hostname|default:device.ip_address }}</h3>
         <dl>
@@ -56,18 +68,42 @@
 
     <section class="grid">
       <section class="panel">
-        <header class="panel-head"><div><p class="eyebrow">Approved inventory</p><h2>Known devices</h2></div><span class="chip">{{ known_count }} known</span></header>
+        <header class="panel-head"><div><p class="eyebrow">Known devices</p></div><span class="chip">{{ known_count }} known</span></header>
         {% if known_devices %}<div class="scroll"><table><thead><tr><th>Name</th><th>Type</th><th>Vendor</th><th>Address</th><th>Last seen</th><th>Status</th><th></th></tr></thead><tbody>
           {% for device in known_devices %}<tr><td><strong>{{ device.hostname|default:"Unnamed device" }}</strong><code>{{ device.mac_address }}</code></td><td>{{ device.get_device_type_display }}</td><td>{% if device.vendor %}{{ device.vendor }}{% else %}Pending{% endif %}</td><td><strong>{{ device.ip_address }}</strong></td><td><time datetime="{{ device.last_seen|date:'c' }}">{{ device.last_seen|timesince }} ago</time></td><td>{% if device.online %}<span class="status online"><i></i>Online</span>{% else %}<span class="status offline"><i></i>Offline</span>{% endif %}</td><td><a class="table-link" href="{% url 'review_device' device.pk %}">Edit</a></td></tr>{% endfor %}
         </tbody></table></div>{% else %}<div class="empty"><b>+</b><h3>No known devices yet</h3><p>Review a discovered device to name it and add it to your inventory.</p></div>{% endif %}
       </section>
-      <aside class="panel alerts"><header class="panel-head"><div><p class="eyebrow">Attention needed</p><h2>Open alerts</h2></div>{% if new_device_alert_count %}<span class="badge">{{ new_device_alert_count }}</span>{% endif %}</header>
+      <!-- <aside class="panel alerts"><header class="panel-head"><div><p class="eyebrow">Attention needed</p><h2>Open alerts</h2></div>{% if new_device_alert_count %}<span class="badge">{{ new_device_alert_count }}</span>{% endif %}</header>
         {% if alerts %}<div class="alert-list">{% for alert in alerts %}<article class="alert"><b class="alert-icon">{% if alert.alert_type == 'NEW_DEVICE' %}+{% else %}!{% endif %}</b><div><span>{{ alert.get_alert_type_display }}</span><p>{{ alert.message }}</p><time datetime="{{ alert.created_at|date:'c' }}">{{ alert.created_at|timesince }} ago</time><form action="{% url 'resolve_alert' alert.pk %}" method="post">{% csrf_token %}<button type="submit">Mark resolved</button></form></div></article>{% endfor %}</div>
         {% else %}<div class="empty"><b>OK</b><h3>Nothing needs attention</h3><p>New-device and status alerts will appear here.</p></div>{% endif %}
-      </aside>
+      </aside> -->
     </section>
   </main>
+
+  {% include "devices/notifications_popup.html" with alerts=alerts new_device_alert_count=new_device_alert_count %}
+  {% include "devices/user_activities_popup.html" with recent_activities=recent_activities %}
+
   <script>
+    document.querySelectorAll('[data-modal-target]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const target = document.getElementById(button.dataset.modalTarget);
+        if (target) target.classList.add('is-open');
+      });
+    });
+
+    document.querySelectorAll('.popup-overlay').forEach((overlay) => {
+      overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) overlay.classList.remove('is-open');
+      });
+    });
+
+    document.querySelectorAll('.popup-close').forEach((button) => {
+      button.addEventListener('click', () => {
+        const overlay = button.closest('.popup-overlay');
+        if (overlay) overlay.classList.remove('is-open');
+      });
+    });
+
     if (document.body.dataset.autoScan === "true") {
       const interval = Number(document.body.dataset.interval) * 1000;
       const token = document.querySelector("[name=csrfmiddlewaretoken]").value;
