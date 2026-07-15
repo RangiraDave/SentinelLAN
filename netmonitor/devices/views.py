@@ -3,6 +3,7 @@ from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.db import models
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
@@ -67,6 +68,94 @@ def dashboard(request):
     context = _get_dashboard_context(request)
     context["monitoring"] = MonitoringSettings.get_solo()
     return render(request, "devices/dashboard.html", context)
+
+
+@login_required
+def known_devices(request):
+    known_devices = Device.objects.filter(trusted=True).order_by("-online", "-last_seen")
+    search_query = (request.GET.get("search") or "").strip()
+    device_type = (request.GET.get("device_type") or "").strip()
+
+    if search_query:
+        known_devices = known_devices.filter(
+            models.Q(hostname__icontains=search_query)
+            | models.Q(ip_address__icontains=search_query)
+            | models.Q(mac_address__icontains=search_query)
+            | models.Q(vendor__icontains=search_query)
+        )
+
+    if device_type:
+        known_devices = known_devices.filter(device_type=device_type)
+
+    unresolved_alerts = Alert.objects.filter(resolved=False).select_related("device")
+    recent_activities = UserActivity.objects.select_related("user").order_by("-timestamp")[:50]
+    context = {
+        "known_devices": known_devices,
+        "monitoring": MonitoringSettings.get_solo(),
+        "alerts": unresolved_alerts.order_by("-created_at")[:8],
+        "new_device_alert_count": unresolved_alerts.filter(alert_type="NEW_DEVICE").count(),
+        "recent_activities": recent_activities,
+        "known_count": known_devices.count(),
+        "online_count": Device.objects.filter(online=True).count(),
+        "search_query": search_query,
+        "device_type": device_type,
+        "device_types": Device.DEVICE_TYPES,
+    }
+    return render(request, "devices/known_devices.html", context)
+
+
+@login_required
+def discovered_devices(request):
+    discovered_devices = Device.objects.filter(trusted=False, dismissed=False).order_by("-first_seen", "-last_seen")
+    search_query = (request.GET.get("search") or "").strip()
+    device_type = (request.GET.get("device_type") or "").strip()
+
+    if search_query:
+        discovered_devices = discovered_devices.filter(
+            models.Q(hostname__icontains=search_query)
+            | models.Q(ip_address__icontains=search_query)
+            | models.Q(mac_address__icontains=search_query)
+            | models.Q(vendor__icontains=search_query)
+        )
+
+    if device_type:
+        discovered_devices = discovered_devices.filter(device_type=device_type)
+
+    unresolved_alerts = Alert.objects.filter(resolved=False).select_related("device")
+    recent_activities = UserActivity.objects.select_related("user").order_by("-timestamp")[:50]
+    context = {
+        "discovered_devices": discovered_devices,
+        "monitoring": MonitoringSettings.get_solo(),
+        "alerts": unresolved_alerts.order_by("-created_at")[:8],
+        "new_device_alert_count": unresolved_alerts.filter(alert_type="NEW_DEVICE").count(),
+        "recent_activities": recent_activities,
+        "discovered_count": discovered_devices.count(),
+        "online_count": Device.objects.filter(online=True).count(),
+        "search_query": search_query,
+        "device_type": device_type,
+        "device_types": Device.DEVICE_TYPES,
+    }
+    return render(request, "devices/discovered_devices.html", context)
+
+
+@login_required
+@require_POST
+def approve_device(request, device_id):
+    device = get_object_or_404(Device, pk=device_id)
+    device.trusted = True
+    device.dismissed = False
+    device.save(update_fields=["trusted", "dismissed"])
+    return redirect("discovered_devices")
+
+
+@login_required
+@require_POST
+def ignore_device(request, device_id):
+    device = get_object_or_404(Device, pk=device_id)
+    device.dismissed = True
+    device.trusted = False
+    device.save(update_fields=["dismissed", "trusted"])
+    return redirect("discovered_devices")
 
 
 @login_required
@@ -143,5 +232,11 @@ def resolve_alert(request, alert_id):
     alert = get_object_or_404(Alert, pk=alert_id)
     alert.resolved = True
     alert.save(update_fields=["resolved"])
-    messages.success(request, "Alert marked as resolved.")
+    return redirect("dashboard")
+
+
+@login_required
+@require_POST
+def clear_all_alerts(request):
+    Alert.objects.filter(resolved=False).update(resolved=True)
     return redirect("dashboard")

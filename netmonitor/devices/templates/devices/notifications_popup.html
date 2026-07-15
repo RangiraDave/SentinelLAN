@@ -10,14 +10,26 @@
     </div>
     <div class="popup-body">
       {% if alerts %}
+        <form action="{% url 'clear_all_alerts' %}" method="post" class="popup-clear-form">{% csrf_token %}<button type="submit" class="tiny-btn clear-all">Clear all</button></form>
         <div class="popup-list">
           {% for alert in alerts %}
             <article class="popup-item accent">
-              <div>
-                <strong>{{ alert.get_alert_type_display }}</strong>
+              <div class="popup-item-main">
+                <div class="popup-item-head">
+                  <strong>{{ alert.get_alert_type_display }}</strong>
+                  <span class="popup-meta-time">{{ alert.created_at|timesince }} ago</span>
+                </div>
                 <p>{{ alert.message }}</p>
+                <div class="popup-meta">
+                  <span>{{ alert.device.hostname|default:alert.device.ip_address }}</span>
+                  <span>{{ alert.device.ip_address }}</span>
+                  {% if alert.device.mac_address %}<span>{{ alert.device.mac_address }}</span>{% endif %}
+                </div>
               </div>
-              <form action="{% url 'resolve_alert' alert.pk %}" method="post">{% csrf_token %}<button type="submit" class="tiny-btn">Resolve</button></form>
+              <div class="popup-actions">
+                {% if alert.alert_type == 'NEW_DEVICE' %}<a class="popup-link" href="{% url 'review_device' alert.device.pk %}">Review</a>{% endif %}
+                <form action="{% url 'resolve_alert' alert.pk %}" method="post">{% csrf_token %}<button type="submit" class="tiny-btn">Resolve</button></form>
+              </div>
             </article>
           {% endfor %}
         </div>

@@ -25,10 +25,22 @@
       <div><p class="eyebrow">Secure local network monitoring</p><h1>What belongs on your network.</em></h1><p>Newly discovered devices remain in review until you name, classify, and approve them as known devices.</p></div>
       <div class="hero-side">
         <button type="button" class="hero-action notifications" data-modal-target="notifications-panel">
-          <span class="hero-action-label">Notifications</span>
-          <strong>{{ new_device_alert_count }}</strong>
+          <span class="hero-action-icon">🔔</span>
+          <span class="hero-action-copy">
+            <span class="hero-action-label">Notifications</span>
+            <strong>{{ alerts|length }}</strong>
+          </span>
         </button>
-        <div class="online-orb"><strong>{{ online_count }}</strong><span>devices online<br>right now</span></div>
+        <div class="online-card" aria-label="Online devices summary">
+          <div class="online-badge">
+            <span class="online-dot"></span>
+            <span>Live</span>
+          </div>
+          <div class="online-count-wrap">
+            <strong>{{ online_count }}</strong>
+            <span>devices online right now</span>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -43,6 +55,14 @@
         <span>User activities</span>
         <small>View all activity</small>
       </button>
+      <a class="secondary-action" href="{% url 'discovered_devices' %}">
+        <span>New devices</span>
+        <small>Review all discovered devices</small>
+      </a>
+      <a class="secondary-action" href="{% url 'known_devices' %}">
+        <span>Known devices</span>
+        <small>Open approved inventory</small>
+      </a>
     </section>
 
     <section class="automation-note {% if monitoring.auto_scan_enabled %}enabled{% endif %}">
@@ -50,46 +70,69 @@
       <span>{% if monitoring.auto_scan_enabled %}NetWatch checks your LAN every {{ monitoring.scan_interval_seconds }} seconds while the monitor service is running. New devices appear below and raise an alert.{% else %}Use Run scan when you want to refresh discovery, or enable automatic scanning for continuous checks.{% endif %}</span>
     </section>
 
-    {% if discovered_devices %}
-    <section class="review-panel">
-      <header class="panel-head"><div><p class="eyebrow">Newly discovered devices</p></div><span class="badge">{{ discovered_count }}</span></header>
-      <div class="review-grid">{% for device in discovered_devices %}<article class="device-card">
-        <span class="tag unknown">{{ device.get_device_type_display }}</span><h3>{{ device.hostname|default:device.ip_address }}</h3>
-        <dl>
-          <div><dt>Suggested name</dt><dd>{% if device.hostname %}{{ device.hostname }}{% else %}{{ device.ip_address }}{% endif %}</dd></div>
-          <div><dt>IP address</dt><dd>{{ device.ip_address }}</dd></div>
-          <div><dt>MAC address</dt><dd><code>{{ device.mac_address }}</code></dd></div>
-          <div><dt>Vendor</dt><dd>{% if device.vendor %}{{ device.vendor }}{% else %}Pending lookup{% endif %}</dd></div>
-          <div><dt>Detected type</dt><dd>{{ device.get_device_type_display }}</dd></div>
-        </dl>
-        <a href="{% url 'review_device' device.pk %}">Add to known devices &rarr;</a>
-      </article>{% endfor %}</div>
-    </section>{% endif %}
-
-    <section class="grid">
-      <section class="panel">
-        <header class="panel-head"><div><p class="eyebrow">Known devices</p></div><span class="chip">{{ known_count }} known</span></header>
-        {% if known_devices %}<div class="scroll"><table><thead><tr><th>Name</th><th>Type</th><th>Vendor</th><th>Address</th><th>Last seen</th><th>Status</th><th></th></tr></thead><tbody>
-          {% for device in known_devices %}<tr><td><strong>{{ device.hostname|default:"Unnamed device" }}</strong><code>{{ device.mac_address }}</code></td><td>{{ device.get_device_type_display }}</td><td>{% if device.vendor %}{{ device.vendor }}{% else %}Pending{% endif %}</td><td><strong>{{ device.ip_address }}</strong></td><td><time datetime="{{ device.last_seen|date:'c' }}">{{ device.last_seen|timesince }} ago</time></td><td>{% if device.online %}<span class="status online"><i></i>Online</span>{% else %}<span class="status offline"><i></i>Offline</span>{% endif %}</td><td><a class="table-link" href="{% url 'review_device' device.pk %}">Edit</a></td></tr>{% endfor %}
-        </tbody></table></div>{% else %}<div class="empty"><b>+</b><h3>No known devices yet</h3><p>Review a discovered device to name it and add it to your inventory.</p></div>{% endif %}
-      </section>
-      <!-- <aside class="panel alerts"><header class="panel-head"><div><p class="eyebrow">Attention needed</p><h2>Open alerts</h2></div>{% if new_device_alert_count %}<span class="badge">{{ new_device_alert_count }}</span>{% endif %}</header>
-        {% if alerts %}<div class="alert-list">{% for alert in alerts %}<article class="alert"><b class="alert-icon">{% if alert.alert_type == 'NEW_DEVICE' %}+{% else %}!{% endif %}</b><div><span>{{ alert.get_alert_type_display }}</span><p>{{ alert.message }}</p><time datetime="{{ alert.created_at|date:'c' }}">{{ alert.created_at|timesince }} ago</time><form action="{% url 'resolve_alert' alert.pk %}" method="post">{% csrf_token %}<button type="submit">Mark resolved</button></form></div></article>{% endfor %}</div>
-        {% else %}<div class="empty"><b>OK</b><h3>Nothing needs attention</h3><p>New-device and status alerts will appear here.</p></div>{% endif %}
-      </aside> -->
-    </section>
   </main>
 
   {% include "devices/notifications_popup.html" with alerts=alerts new_device_alert_count=new_device_alert_count %}
   {% include "devices/user_activities_popup.html" with recent_activities=recent_activities %}
 
   <script>
+    const notificationButton = document.querySelector('.hero-action.notifications');
+    const notificationStorageKey = 'netwatch.notificationCount';
+
+    function playNotificationSound(force = false) {
+      const countElement = document.querySelector('.hero-action.notifications strong');
+      const count = Number(countElement?.textContent?.trim() || 0);
+      const previousCount = Number(window.localStorage.getItem(notificationStorageKey) || 0);
+
+      if (count <= 0) {
+        window.localStorage.setItem(notificationStorageKey, '0');
+        return;
+      }
+
+      if (!force && count <= previousCount) {
+        window.localStorage.setItem(notificationStorageKey, String(count));
+        return;
+      }
+
+      try {
+        const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextCtor) return;
+        const audioContext = new AudioContextCtor();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 880;
+        gainNode.gain.value = 0.04;
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.18);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.2);
+        setTimeout(() => audioContext.close(), 220);
+      } catch (error) {
+        console.warn('Notification sound unavailable', error);
+      }
+
+      window.localStorage.setItem(notificationStorageKey, String(count));
+    }
+
     document.querySelectorAll('[data-modal-target]').forEach((button) => {
       button.addEventListener('click', () => {
         const target = document.getElementById(button.dataset.modalTarget);
-        if (target) target.classList.add('is-open');
+        if (target) {
+          target.classList.add('is-open');
+          if (button === notificationButton) {
+            playNotificationSound(true);
+          }
+        }
       });
     });
+
+    if (notificationButton) {
+      notificationButton.addEventListener('click', () => playNotificationSound(true));
+    }
+
+    window.addEventListener('load', () => playNotificationSound(false));
 
     document.querySelectorAll('.popup-overlay').forEach((overlay) => {
       overlay.addEventListener('click', (event) => {

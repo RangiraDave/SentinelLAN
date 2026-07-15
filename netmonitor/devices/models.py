@@ -48,6 +48,10 @@ class Device(models.Model):
         default=False
     )
 
+    dismissed = models.BooleanField(
+        default=False
+    )
+
     online = models.BooleanField(
         default=True
     )

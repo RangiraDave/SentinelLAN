@@ -1,0 +1,99 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NetWatch | Newly discovered devices</title>
+  <link rel="stylesheet" href="{% static 'devices/dashboard.css' %}">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="{% url 'dashboard' %}"><b>N</b> Net<span>Watch</span></a>
+      <div class="actions">
+        <a class="mode" href="{% url 'dashboard' %}">Back to dashboard</a>
+        <form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="logout" type="submit">Sign out</button></form>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Pending review</p>
+        <h1>Newly discovered devices</h1>
+        <p>Every device waiting for approval appears here so you can review them in one place.</p>
+      </div>
+      <div class="hero-side">
+        <div class="online-orb"><strong>{{ discovered_count }}</strong><span>devices pending<br>review</span></div>
+      </div>
+    </section>
+
+    <section class="inventory-summary">
+      <div class="inventory-summary-card">
+        <div>
+          <p class="eyebrow">Review queue</p>
+          <h2>{{ discovered_count }} devices awaiting approval</h2>
+        </div>
+        <div class="inventory-pill">Needs review</div>
+      </div>
+      <a class="secondary-action" href="{% url 'dashboard' %}">
+        <span>Back to dashboard</span>
+        <small>Return to overview</small>
+      </a>
+    </section>
+
+    <section class="inventory-panel">
+      <header class="panel-head">
+        <div>
+          <p class="eyebrow">Discovery inventory</p>
+          <h2>Device review list</h2>
+        </div>
+        <span class="chip">Unapproved devices</span>
+      </header>
+      <form class="inventory-toolbar" method="get" action="{% url 'discovered_devices' %}">
+        <input type="text" name="search" value="{{ search_query }}" placeholder="Search by name, IP, MAC, vendor" />
+        <select name="device_type">
+          <option value="">All device types</option>
+          {% for value, label in device_types %}
+            <option value="{{ value }}" {% if device_type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit">Apply filters</button>
+        {% if search_query or device_type %}<a href="{% url 'discovered_devices' %}">Clear</a>{% endif %}
+      </form>
+      {% if discovered_devices %}
+        <div class="inventory-grid">
+          {% for device in discovered_devices %}
+            <article class="inventory-card">
+              <div class="inventory-card-top">
+                <div>
+                  <h3>{{ device.hostname|default:device.ip_address }}</h3>
+                  <p>{{ device.get_device_type_display }}</p>
+                </div>
+                <span class="status offline"><i></i>Pending</span>
+              </div>
+              <dl>
+                <div><dt>IP</dt><dd>{{ device.ip_address }}</dd></div>
+                <div><dt>MAC</dt><dd><code>{{ device.mac_address }}</code></dd></div>
+                <div><dt>Vendor</dt><dd>{% if device.vendor %}{{ device.vendor }}{% else %}Pending{% endif %}</dd></div>
+                <div><dt>Last seen</dt><dd><time datetime="{{ device.last_seen|date:'c' }}">{{ device.last_seen|timesince }} ago</time></dd></div>
+              </dl>
+              <div class="inventory-actions">
+                <a class="table-link" href="{% url 'review_device' device.pk %}">Review</a>
+                <form method="post" action="{% url 'approve_device' device.pk %}">{% csrf_token %}<button type="submit" class="mini-btn success">Approve</button></form>
+                <form method="post" action="{% url 'ignore_device' device.pk %}">{% csrf_token %}<button type="submit" class="mini-btn">Ignore</button></form>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty">
+          <b>+</b>
+          <h3>No new devices pending review</h3>
+          <p>Newly discovered devices will appear here after the next scan.</p>
+        </div>
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>

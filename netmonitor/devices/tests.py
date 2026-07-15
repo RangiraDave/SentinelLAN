@@ -24,9 +24,40 @@ class DashboardTests(TestCase):
 
     def test_dashboard_displays_known_inventory_and_alerts(self):
         response = self.client.get(reverse("dashboard"))
-        self.assertContains(response, "Office router")
+        self.assertContains(response, "Known devices")
+        self.assertContains(response, "Open approved inventory")
         self.assertContains(response, "New device detected")
         self.assertEqual(response.context["known_count"], 1)
+
+    def test_known_devices_page_lists_known_inventory_details(self):
+        response = self.client.get(reverse("known_devices"))
+        self.assertContains(response, "Office router")
+        self.assertContains(response, "10.10.20.1")
+        self.assertContains(response, "aa:bb:cc:dd:ee:ff")
+        self.assertContains(response, "Router")
+
+    def test_known_devices_page_can_filter_by_search_and_type(self):
+        Device.objects.create(hostname="Kitchen printer", ip_address="10.10.20.2", mac_address="11:22:33:44:55:66", trusted=True, device_type="printer")
+        response = self.client.get(reverse("known_devices"), {"search": "router", "device_type": "router"})
+        self.assertContains(response, "Office router")
+        self.assertNotContains(response, "Kitchen printer")
+        self.assertEqual(response.context["known_devices"].count(), 1)
+
+    def test_approving_device_marks_it_as_known(self):
+        discovered = Device.objects.create(ip_address="10.10.20.44", mac_address="11:22:33:44:55:66", trusted=False)
+        response = self.client.post(reverse("approve_device", args=[discovered.pk]))
+        self.assertRedirects(response, reverse("discovered_devices"))
+        discovered.refresh_from_db()
+        self.assertTrue(discovered.trusted)
+        self.assertFalse(discovered.dismissed)
+
+    def test_ignoring_device_marks_it_as_dismissed(self):
+        discovered = Device.objects.create(ip_address="10.10.20.45", mac_address="11:22:33:44:55:67", trusted=False)
+        response = self.client.post(reverse("ignore_device", args=[discovered.pk]))
+        self.assertRedirects(response, reverse("discovered_devices"))
+        discovered.refresh_from_db()
+        self.assertFalse(discovered.trusted)
+        self.assertTrue(discovered.dismissed)
 
     def test_dashboard_renders_notifications_and_activity_popups(self):
         UserActivity.objects.create(user=self.user, path="/", method="GET", action="Viewed dashboard")
