@@ -22,7 +22,7 @@
     {% if messages %}<section class="messages" aria-live="polite">{% for message in messages %}<p class="message {{ message.tags }}">{{ message }}</p>{% endfor %}</section>{% endif %}
 
     <section class="hero">
-      <div><p class="eyebrow">Secure local network monitoring</p><h1>What belongs on your network.</em></h1><p>Newly discovered devices remain in review until you name, classify, and approve them as known devices.</p></div>
+      <div><p class="eyebrow">Secure local network monitoring</p><h2>What belongs on your network.</em></h2><p>Newly discovered devices remain in review until you name, classify, and approve them as known devices.</p></div>
       <div class="hero-side">
         <button type="button" class="hero-action notifications" data-modal-target="notifications-panel">
           <span class="hero-action-icon">🔔</span>
@@ -79,6 +79,22 @@
     const notificationButton = document.querySelector('.hero-action.notifications');
     const notificationStorageKey = 'netwatch.notificationCount';
 
+    function speakNotification(message) {
+      if (!('speechSynthesis' in window)) return;
+
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.lang = 'en-US';
+        utterance.rate = 1.02;
+        utterance.pitch = 1.05;
+        utterance.volume = 0.9;
+        window.speechSynthesis.speak(utterance);
+      } catch (error) {
+        console.warn('Voice notification unavailable', error);
+      }
+    }
+
     function playNotificationSound(force = false) {
       const countElement = document.querySelector('.hero-action.notifications strong');
       const count = Number(countElement?.textContent?.trim() || 0);
@@ -96,23 +112,26 @@
 
       try {
         const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextCtor) return;
-        const audioContext = new AudioContextCtor();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        oscillator.type = 'sine';
-        oscillator.frequency.value = 880;
-        gainNode.gain.value = 0.04;
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.18);
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.2);
-        setTimeout(() => audioContext.close(), 220);
+        if (AudioContextCtor) {
+          const audioContext = new AudioContextCtor();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          oscillator.type = 'sine';
+          oscillator.frequency.value = 880;
+          gainNode.gain.value = 0.04;
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.18);
+          gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.2);
+          setTimeout(() => audioContext.close(), 220);
+        }
       } catch (error) {
         console.warn('Notification sound unavailable', error);
       }
 
+      const message = count === 1 ? 'You have one new notification.' : `You have ${count} new notifications.`;
+      speakNotification(message);
       window.localStorage.setItem(notificationStorageKey, String(count));
     }
 

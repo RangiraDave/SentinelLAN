@@ -1,10 +1,38 @@
 {% load static %}
-<!doctype html><html lang="en">
-    <head><meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Create account | NetWatch</title>
-        <link rel="stylesheet" href="{% static 'devices/auth.css' %}">
-    </head>
-<body>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Create account | NetWatch</title>
+    <link rel="stylesheet" href="{% static 'devices/auth.css' %}">
+  </head>
+  <body>
     <main class="form-shell">
-        <a class="wordmark" href="{% url 'login' %}">Net<span>Watch</span></a><section class="form-card"><p class="eyebrow">Secure access</p><h1>Create your account</h1><p class="intro">Set up the account that will manage this NetWatch installation.</p><form method="post">{% csrf_token %}{% for field in form %}<p class="field">{{ field.label_tag }}{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="error">{{ error }}</small>{% endfor %}</p>{% endfor %}<button type="submit">Create account</button></form><p class="switch">Already have an account? <a href="{% url 'login' %}">Sign in</a></p></section></main></body></html>
+      <a class="wordmark" href="{% url 'login' %}">Net<span>Watch</span></a>
+      <section class="form-card">
+        <p class="eyebrow">Secure access</p>
+        <h1>Create your account</h1>
+        <p class="intro">Set up the account that will manage this NetWatch installation.</p>
+        <form method="post">
+          {% csrf_token %}
+          {% for field in form %}
+            <p class="field">
+              {{ field.label_tag }}{{ field }}
+              {% if field.help_text %}
+                <small>{{ field.help_text }}</small>
+              {% endif %}
+              {% for error in field.errors %}
+                <small class="error">{{ error }}</small>
+              {% endfor %}
+            </p>
+          {% endfor %}
+          <button type="submit">Create account</button>
+        </form>
+        <p class="switch">
+          Already have an account? <a href="{% url 'login' %}">Sign in</a>
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,3 +1,41 @@
 {% load static %}
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sign in | NetWatch</title><link rel="stylesheet" href="{% static 'devices/auth.css' %}"></head>
-<body><main class="form-shell"><a class="wordmark" href="{% url 'login' %}">Net<span>Watch</span></a><section class="form-card"><p class="eyebrow">Secure access</p><h1>Welcome back</h1><p class="intro">Sign in to monitor and manage your local network.</p><form method="post">{% csrf_token %}{% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}{% for field in form %}<p class="field">{{ field.label_tag }}{{ field }}{% for error in field.errors %}<small class="error">{{ error }}</small>{% endfor %}</p>{% endfor %}{% for error in form.non_field_errors %}<p class="error">{{ error }}</p>{% endfor %}<button type="submit">Sign in</button></form><p class="switch">New to NetWatch? <a href="{% url 'signup' %}">Create an account</a></p></section></main></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sign in | NetWatch</title>
+    <link rel="stylesheet" href="{% static 'devices/auth.css' %}">
+  </head>
+  <body>
+    <main class="form-shell">
+      <a class="wordmark" href="{% url 'login' %}">Net<span>Watch</span></a>
+      <section class="form-card">
+        <p class="eyebrow">Secure access</p>
+        <h1>Welcome back</h1>
+        <p class="intro">Sign in to monitor and manage your local network.</p>
+        <form method="post">
+          {% csrf_token %}
+          {% if next %}
+            <input type="hidden" name="next" value="{{ next }}">
+          {% endif %}
+          {% for field in form %}
+            <p class="field">
+              {{ field.label_tag }}{{ field }}
+              {% for error in field.errors %}
+                <small class="error">{{ error }}</small>
+              {% endfor %}
+            </p>
+          {% endfor %}
+          {% for error in form.non_field_errors %}
+            <p class="error">{{ error }}</p>
+          {% endfor %}
+          <button type="submit">Sign in</button>
+        </form>
+        <p class="switch">
+          New to NetWatch? <a href="{% url 'signup' %}">Create an account</a>
+        </p>
+      </section>
+    </main>
+  </body>
+</html>
