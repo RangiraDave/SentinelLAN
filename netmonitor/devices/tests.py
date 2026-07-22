@@ -25,9 +25,19 @@ class DashboardTests(TestCase):
     def test_dashboard_displays_known_inventory_and_alerts(self):
         response = self.client.get(reverse("dashboard"))
         self.assertContains(response, "Known devices")
-        self.assertContains(response, "Open approved inventory")
+        self.assertContains(response, "View trusted inventory")
         self.assertContains(response, "New device detected")
         self.assertEqual(response.context["known_count"], 1)
+
+    def test_dashboard_guides_first_scan_when_no_scan_has_run(self):
+        response = self.client.get(reverse("dashboard"))
+        self.assertContains(response, "Start by scanning your network")
+        self.assertContains(response, "Your network has not been scanned yet")
+
+    def test_dashboard_excludes_dismissed_devices_from_review_count(self):
+        Device.objects.create(ip_address="10.10.20.90", mac_address="11:22:33:44:55:90", dismissed=True)
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.context["discovered_count"], 0)
 
     def test_known_devices_page_lists_known_inventory_details(self):
         response = self.client.get(reverse("known_devices"))
@@ -59,12 +69,26 @@ class DashboardTests(TestCase):
         self.assertFalse(discovered.trusted)
         self.assertTrue(discovered.dismissed)
 
+    def test_dismissed_device_can_be_restored_to_review_queue(self):
+        discovered = Device.objects.create(ip_address="10.10.20.46", mac_address="11:22:33:44:55:68", dismissed=True)
+        response = self.client.post(reverse("restore_device", args=[discovered.pk]))
+        self.assertRedirects(response, reverse("discovered_devices"))
+        discovered.refresh_from_db()
+        self.assertFalse(discovered.dismissed)
+
+    def test_dismissed_device_page_lists_recoverable_devices(self):
+        dismissed = Device.objects.create(ip_address="10.10.20.47", mac_address="11:22:33:44:55:69", dismissed=True)
+        active = Device.objects.create(ip_address="10.10.20.48", mac_address="11:22:33:44:55:70")
+        response = self.client.get(reverse("discovered_devices"), {"show": "dismissed"})
+        self.assertContains(response, dismissed.ip_address)
+        self.assertNotContains(response, active.ip_address)
+
     def test_dashboard_renders_notifications_and_activity_popups(self):
         UserActivity.objects.create(user=self.user, path="/", method="GET", action="Viewed dashboard")
         response = self.client.get(reverse("dashboard"))
         self.assertContains(response, "Notifications")
         self.assertContains(response, "User activities")
-        self.assertContains(response, "View all activity")
+        self.assertContains(response, "See recent account actions")
 
     def test_dashboard_activity_popup_shows_admin_style_columns(self):
         activity = UserActivity.objects.create(
@@ -97,6 +121,14 @@ class DashboardTests(TestCase):
         self.assertTrue(discovered.trusted)
         self.assertEqual(discovered.hostname, "Kitchen printer")
         self.assertEqual(discovered.device_type, "printer")
+
+    def test_review_returns_to_originating_inventory(self):
+        discovered = Device.objects.create(ip_address="10.10.20.49", mac_address="11:22:33:44:55:71")
+        response = self.client.post(reverse("review_device", args=[discovered.pk]), {
+            "hostname": "Hallway camera", "device_type": "camera", "vendor": "", "notes": "",
+            "return_to": "discovered_devices",
+        })
+        self.assertRedirects(response, reverse("discovered_devices"))
 
     @patch("devices.views.run_scan", return_value=[])
     def test_scan_action_records_completion_and_redirects(self, mock_run_scan):

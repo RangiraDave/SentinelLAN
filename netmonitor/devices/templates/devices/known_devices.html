@@ -4,13 +4,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NetWatch | Known devices</title>
+  <title>SentinelLAN | Known devices</title>
   <link rel="stylesheet" href="{% static 'devices/dashboard.css' %}">
 </head>
 <body>
   <main class="shell">
     <header class="topbar">
-      <a class="brand" href="{% url 'dashboard' %}"><b>N</b> Net<span>Watch</span></a>
+      <a class="brand" href="{% url 'dashboard' %}"><b>S</b> Sentinel<span>LAN</span></a>
       <div class="actions">
         <a class="mode" href="{% url 'dashboard' %}">Back to dashboard</a>
         <form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="logout" type="submit">Sign out</button></form>
@@ -53,8 +53,8 @@
         <span class="chip">Current network inventory</span>
       </header>
       <form class="inventory-toolbar" method="get" action="{% url 'known_devices' %}">
-        <input type="text" name="search" value="{{ search_query }}" placeholder="Search by name, IP, MAC, vendor" />
-        <select name="device_type">
+        <label for="device-search">Search devices</label><input id="device-search" type="search" name="search" value="{{ search_query }}" placeholder="Search by name, IP, MAC, or vendor" />
+        <label for="device-type">Filter by device type</label><select id="device-type" name="device_type">
           <option value="">All device types</option>
           {% for value, label in device_types %}
             <option value="{{ value }}" {% if device_type == value %}selected{% endif %}>{{ label }}</option>
@@ -80,7 +80,7 @@
                 <div><dt>Vendor</dt><dd>{% if device.vendor %}{{ device.vendor }}{% else %}Pending{% endif %}</dd></div>
                 <div><dt>Last seen</dt><dd><time datetime="{{ device.last_seen|date:'c' }}">{{ device.last_seen|timesince }} ago</time></dd></div>
               </dl>
-              <a class="table-link" href="{% url 'review_device' device.pk %}">Edit details</a>
+              <a class="table-link" href="{% url 'review_device' device.pk %}?next=known_devices">Edit details</a>
             </article>
           {% endfor %}
         </div>
@@ -89,6 +89,7 @@
           <b>+</b>
           <h3>No known devices yet</h3>
           <p>Review a discovered device to name it and add it to your inventory.</p>
+          <a href="{% url 'discovered_devices' %}">Review discovered devices</a>
         </div>
       {% endif %}
     </section>

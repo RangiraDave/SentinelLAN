@@ -16,3 +16,10 @@ class DeviceReviewForm(forms.ModelForm):
             "hostname": "Device name",
             "trusted": "Add this device to known devices",
         }
+        help_texts = {
+            "hostname": "Use a name you will recognize later, such as Kitchen printer.",
+            "device_type": "Choose the closest match; you can change it later.",
+            "vendor": "Optional. This may be the manufacturer shown on the device.",
+            "notes": "Optional details that help you or another operator recognize it.",
+            "trusted": "Only select this if you recognize and allow this device on your network.",
+        }

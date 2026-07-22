@@ -4,16 +4,16 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Create account | NetWatch</title>
+    <title>Create account | SentinelLAN</title>
     <link rel="stylesheet" href="{% static 'devices/auth.css' %}">
   </head>
   <body>
     <main class="form-shell">
-      <a class="wordmark" href="{% url 'login' %}">Net<span>Watch</span></a>
+      <a class="wordmark" href="{% url 'login' %}">Sentinel<span>LAN</span></a>
       <section class="form-card">
         <p class="eyebrow">Secure access</p>
         <h1>Create your account</h1>
-        <p class="intro">Set up the account that will manage this NetWatch installation.</p>
+        <p class="intro">Create the administrator account that will review and manage devices found by this SentinelLAN installation.</p>
         <form method="post">
           {% csrf_token %}
           {% for field in form %}

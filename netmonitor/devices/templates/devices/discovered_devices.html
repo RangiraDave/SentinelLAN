@@ -4,24 +4,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NetWatch | Newly discovered devices</title>
+  <title>SentinelLAN | Devices to review</title>
   <link rel="stylesheet" href="{% static 'devices/dashboard.css' %}">
 </head>
 <body>
   <main class="shell">
     <header class="topbar">
-      <a class="brand" href="{% url 'dashboard' %}"><b>N</b> Net<span>Watch</span></a>
+      <a class="brand" href="{% url 'dashboard' %}"><b>S</b> Sentinel<span>LAN</span></a>
       <div class="actions">
         <a class="mode" href="{% url 'dashboard' %}">Back to dashboard</a>
         <form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="logout" type="submit">Sign out</button></form>
       </div>
     </header>
 
+    {% if messages %}<section class="messages" aria-live="polite">{% for message in messages %}<p class="message {{ message.tags }}">{{ message }}</p>{% endfor %}</section>{% endif %}
+
     <section class="hero">
       <div>
-        <p class="eyebrow">Pending review</p>
-        <h1>Newly discovered devices</h1>
-        <p>Every device waiting for approval appears here so you can review them in one place.</p>
+        <p class="eyebrow">{% if show_dismissed %}Dismissed devices{% else %}Pending review{% endif %}</p>
+        <h1>{% if show_dismissed %}Dismissed devices{% else %}Devices to review{% endif %}</h1>
+        <p>{% if show_dismissed %}Restore a device if you dismissed it by mistake or want to review it again.{% else %}Identify devices you recognize before adding them to your trusted inventory.{% endif %}</p>
       </div>
       <div class="hero-side">
         <div class="online-orb"><strong>{{ discovered_count }}</strong><span>devices pending<br>review</span></div>
@@ -32,13 +34,13 @@
       <div class="inventory-summary-card">
         <div>
           <p class="eyebrow">Review queue</p>
-          <h2>{{ discovered_count }} devices awaiting approval</h2>
+          <h2>{{ discovered_count }} device{{ discovered_count|pluralize }} {% if show_dismissed %}dismissed{% else %}awaiting review{% endif %}</h2>
         </div>
-        <div class="inventory-pill">Needs review</div>
+        <div class="inventory-pill">{% if show_dismissed %}Hidden from review{% else %}Needs review{% endif %}</div>
       </div>
-      <a class="secondary-action" href="{% url 'dashboard' %}">
-        <span>Back to dashboard</span>
-        <small>Return to overview</small>
+      <a class="secondary-action" href="{% if show_dismissed %}{% url 'discovered_devices' %}{% else %}{% url 'discovered_devices' %}?show=dismissed{% endif %}">
+        <span>{% if show_dismissed %}Open review queue{% else %}Dismissed devices ({{ dismissed_count }}){% endif %}</span>
+        <small>{% if show_dismissed %}Return to devices needing review{% else %}Restore devices hidden earlier{% endif %}</small>
       </a>
     </section>
 
@@ -46,20 +48,22 @@
       <header class="panel-head">
         <div>
           <p class="eyebrow">Discovery inventory</p>
-          <h2>Device review list</h2>
+          <h2>{% if show_dismissed %}Dismissed device list{% else %}Device review list{% endif %}</h2>
         </div>
-        <span class="chip">Unapproved devices</span>
+        <span class="chip">{% if show_dismissed %}Recoverable devices{% else %}Unapproved devices{% endif %}</span>
       </header>
       <form class="inventory-toolbar" method="get" action="{% url 'discovered_devices' %}">
-        <input type="text" name="search" value="{{ search_query }}" placeholder="Search by name, IP, MAC, vendor" />
-        <select name="device_type">
+        {% if show_dismissed %}<input type="hidden" name="show" value="dismissed">{% endif %}
+        <label for="device-search">Search devices</label><input id="device-search" type="search" name="search" value="{{ search_query }}" placeholder="Search by name, IP, MAC, or vendor" />
+        <label for="device-type">Filter by device type</label>
+        <select id="device-type" name="device_type">
           <option value="">All device types</option>
           {% for value, label in device_types %}
             <option value="{{ value }}" {% if device_type == value %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
         <button type="submit">Apply filters</button>
-        {% if search_query or device_type %}<a href="{% url 'discovered_devices' %}">Clear</a>{% endif %}
+        {% if search_query or device_type %}<a href="{% url 'discovered_devices' %}{% if show_dismissed %}?show=dismissed{% endif %}">Clear</a>{% endif %}
       </form>
       {% if discovered_devices %}
         <div class="inventory-grid">
@@ -70,7 +74,7 @@
                   <h3>{{ device.hostname|default:device.ip_address }}</h3>
                   <p>{{ device.get_device_type_display }}</p>
                 </div>
-                <span class="status offline"><i></i>Pending</span>
+                <span class="status offline"><i></i>{% if show_dismissed %}Dismissed{% else %}Needs review{% endif %}</span>
               </div>
               <dl>
                 <div><dt>IP</dt><dd>{{ device.ip_address }}</dd></div>
@@ -78,19 +82,16 @@
                 <div><dt>Vendor</dt><dd>{% if device.vendor %}{{ device.vendor }}{% else %}Pending{% endif %}</dd></div>
                 <div><dt>Last seen</dt><dd><time datetime="{{ device.last_seen|date:'c' }}">{{ device.last_seen|timesince }} ago</time></dd></div>
               </dl>
-              <div class="inventory-actions">
-                <a class="table-link" href="{% url 'review_device' device.pk %}">Review</a>
-                <form method="post" action="{% url 'approve_device' device.pk %}">{% csrf_token %}<button type="submit" class="mini-btn success">Approve</button></form>
-                <form method="post" action="{% url 'ignore_device' device.pk %}">{% csrf_token %}<button type="submit" class="mini-btn">Ignore</button></form>
-              </div>
+              <div class="inventory-actions">{% if show_dismissed %}<form method="post" action="{% url 'restore_device' device.pk %}">{% csrf_token %}<button type="submit" class="mini-btn success">Return to review queue</button></form>{% else %}<a class="table-link" href="{% url 'review_device' device.pk %}?next=discovered_devices">Identify device</a><form method="post" action="{% url 'approve_device' device.pk %}">{% csrf_token %}<button type="submit" class="mini-btn success" title="Trust this device using its current details">Trust now</button></form><form method="post" action="{% url 'ignore_device' device.pk %}">{% csrf_token %}<button type="submit" class="mini-btn" title="Hide this device; you can restore it later">Dismiss for now</button></form>{% endif %}</div>
             </article>
           {% endfor %}
         </div>
       {% else %}
         <div class="empty">
           <b>+</b>
-          <h3>No new devices pending review</h3>
-          <p>Newly discovered devices will appear here after the next scan.</p>
+          <h3>{% if show_dismissed %}No dismissed devices{% else %}Your review queue is clear{% endif %}</h3>
+          <p>{% if show_dismissed %}Devices you dismiss will remain recoverable here.{% else %}Newly discovered devices will appear here after your next scan.{% endif %}</p>
+          <a href="{% if show_dismissed %}{% url 'discovered_devices' %}{% else %}{% url 'dashboard' %}{% endif %}">{% if show_dismissed %}Back to review queue{% else %}Return to dashboard{% endif %}</a>
         </div>
       {% endif %}
     </section>

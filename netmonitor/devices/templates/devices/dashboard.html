@@ -3,18 +3,18 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NetWatch | Dashboard</title><link rel="stylesheet" href="{% static 'devices/dashboard.css' %}">
+  <title>SentinelLAN | Dashboard</title><link rel="stylesheet" href="{% static 'devices/dashboard.css' %}">
 </head>
-<body data-auto-scan="{{ monitoring.auto_scan_enabled|yesno:'true,false' }}" data-interval="{{ monitoring.scan_interval_seconds }}">
+<body data-auto-scan="{{ monitoring.auto_scan_enabled|yesno:'true,false' }}" data-interval="{{ monitoring.scan_interval_seconds }}" data-scan-url="{% url 'run_network_scan' %}">
   <main class="shell">
     <header class="topbar">
-      <a class="brand" href="{% url 'dashboard' %}"><b>N</b> Net<span>Watch</span></a>
+      <a class="brand" href="{% url 'dashboard' %}"><b>S</b> Sentinel<span>LAN</span></a>
       <div class="actions">
         <form action="{% url 'toggle_auto_scan' %}" method="post">{% csrf_token %}
           {% if monitoring.auto_scan_enabled %}<input type="hidden" name="auto_scan" value="false"><button class="mode auto" type="submit">Auto scan on</button>
           {% else %}<input type="hidden" name="auto_scan" value="true"><button class="mode" type="submit">Enable auto scan</button>{% endif %}
         </form>
-        <form action="{% url 'run_network_scan' %}" method="post">{% csrf_token %}<button type="submit">Run scan <b>&rarr;</b></button></form>
+        <form class="scan-form" action="{% url 'run_network_scan' %}" method="post">{% csrf_token %}<button type="submit"><span class="button-label">Scan now</span> <b>&rarr;</b></button></form>
         <form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="logout" type="submit">Sign out</button></form>
       </div>
     </header>
@@ -22,13 +22,13 @@
     {% if messages %}<section class="messages" aria-live="polite">{% for message in messages %}<p class="message {{ message.tags }}">{{ message }}</p>{% endfor %}</section>{% endif %}
 
     <section class="hero">
-      <div><p class="eyebrow">Secure local network monitoring</p><h2>What belongs on your network.</em></h2><p>Newly discovered devices remain in review until you name, classify, and approve them as known devices.</p></div>
+      <div class="hero-copy"><p class="eyebrow">Secure local network monitoring</p><h1>Know what belongs on your network.</h1><p>SentinelLAN finds devices on your local network and helps you decide which ones you trust.</p><div class="scan-freshness"><span class="online-dot"></span>{% if monitoring.last_scan_at %}Last scanned {{ monitoring.last_scan_at|timesince }} ago{% else %}Your network has not been scanned yet{% endif %}</div></div>
       <div class="hero-side">
         <button type="button" class="hero-action notifications" data-modal-target="notifications-panel">
-          <span class="hero-action-icon">🔔</span>
+          <!-- <span class="hero-action-icon"></span> -->
           <span class="hero-action-copy">
-            <span class="hero-action-label">Notifications</span>
-            <strong>{{ alerts|length }}</strong>
+            <span class="hero-action-label">Alerts</span>
+            <strong><span aria-hidden="true">🔔</span> {{ alerts|length }}</strong>
           </span>
         </button>
         <div class="online-card" aria-label="Online devices summary">
@@ -38,142 +38,53 @@
           </div>
           <div class="online-count-wrap">
             <strong>{{ online_count }}</strong>
-            <span>devices online right now</span>
+            <span>devices online now</span>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="metrics" aria-label="Network summary">
-      <article><span>Known devices</span><strong>{{ known_count }}</strong><small>approved inventory</small></article>
-      <article class="blue"><span>Awaiting review</span><strong>{{ discovered_count }}</strong><small>unapproved devices</small></article>
-      <!-- <article class="red"><span>New device alerts</span><strong>{{ new_device_alert_count }}</strong><small>{% if monitoring.auto_scan_enabled %}auto scan is active{% else %}manual scan mode{% endif %}</small></article> -->
+    <section class="next-step" aria-labelledby="next-step-title">
+      <div>
+        <p class="eyebrow">Recommended next step</p>
+        {% if not monitoring.last_scan_at %}<h2 id="next-step-title">Start by scanning your network</h2><p>This safely checks which devices are currently connected. It does not change your router or block anything.</p>
+        {% elif discovered_count %}<h2 id="next-step-title">Review {{ discovered_count }} device{{ discovered_count|pluralize }} you haven't approved</h2><p>Identify anything you recognize and add it to your trusted inventory.</p>
+        {% else %}<h2 id="next-step-title">Your review queue is clear</h2><p>All detected devices have been reviewed. Scan again whenever your network changes.</p>{% endif %}
+      </div>
+      {% if not monitoring.last_scan_at %}<form class="scan-form" action="{% url 'run_network_scan' %}" method="post">{% csrf_token %}<button type="submit"><span class="button-label">Scan my network</span> <b>&rarr;</b></button></form>
+      {% elif discovered_count %}<a class="primary-link" href="{% url 'discovered_devices' %}">Review devices <b>&rarr;</b></a>
+      {% else %}<form class="scan-form" action="{% url 'run_network_scan' %}" method="post">{% csrf_token %}<button type="submit"><span class="button-label">Scan again</span> <b>&rarr;</b></button></form>{% endif %}
     </section>
 
-    <section class="secondary-actions">
-      <button type="button" class="secondary-action" data-modal-target="activity-panel">
-        <span>User activities</span>
-        <small>View all activity</small>
-      </button>
-      <a class="secondary-action" href="{% url 'discovered_devices' %}">
-        <span>New devices</span>
-        <small>Review all discovered devices</small>
-      </a>
-      <a class="secondary-action" href="{% url 'known_devices' %}">
-        <span>Known devices</span>
-        <small>Open approved inventory</small>
-      </a>
+    <section class="setup-guide" aria-labelledby="setup-title">
+      <div class="section-heading"><div><p class="eyebrow">How it works</p><h2 id="setup-title">Your network safety checklist</h2></div><span class="chip">{% if monitoring.auto_scan_enabled and known_count %}Monitoring active{% else %}Setup guide{% endif %}</span></div>
+      <ol class="steps">
+        <li class="{% if monitoring.last_scan_at %}complete{% endif %}"><span>1</span><div><strong>Scan the network</strong><small>Find connected devices</small></div></li>
+        <li class="{% if monitoring.last_scan_at and not discovered_count %}complete{% endif %}"><span>2</span><div><strong>Review new devices</strong><small>Name what you recognize</small></div></li>
+        <li class="{% if known_count %}complete{% endif %}"><span>3</span><div><strong>Build trusted inventory</strong><small>Keep known devices organized</small></div></li>
+        <li class="{% if monitoring.auto_scan_enabled %}complete{% endif %}"><span>4</span><div><strong>Enable monitoring</strong><small>Get notified about newcomers</small></div></li>
+      </ol>
     </section>
+
+    <section class="metrics" aria-label="Network summary">
+      <a href="{% url 'known_devices' %}"><article><strong>{{ known_count }}</strong><small>Known devices</small><span>View trusted inventory &rarr;</span></article></a>
+      <a href="{% url 'discovered_devices' %}"><article class="blue"><strong>{{ discovered_count }}</strong><small>Need your review</small><span>Open review queue &rarr;</span></article></a>
+    </section>
+
+    {% if recent_discovered_devices %}<section class="recent-panel"><div class="section-heading"><div><p class="eyebrow">Recent discoveries</p><h2>Devices waiting for you</h2></div><a href="{% url 'discovered_devices' %}">Review all {{ discovered_count }}</a></div><div class="recent-list">{% for device in recent_discovered_devices %}<a href="{% url 'review_device' device.pk %}?next=discovered_devices"><span class="device-icon" aria-hidden="true">?</span><span><strong>{{ device.hostname|default:"Unidentified device" }}</strong><small>{{ device.get_device_type_display }} · {{ device.ip_address }} · seen {{ device.last_seen|timesince }} ago</small></span><b>Identify &rarr;</b></a>{% endfor %}</div></section>{% endif %}
 
     <section class="automation-note {% if monitoring.auto_scan_enabled %}enabled{% endif %}">
       <strong>{% if monitoring.auto_scan_enabled %}Automatic scanning is on{% else %}Manual scanning is on{% endif %}</strong>
-      <span>{% if monitoring.auto_scan_enabled %}NetWatch checks your LAN every {{ monitoring.scan_interval_seconds }} seconds while the monitor service is running. New devices appear below and raise an alert.{% else %}Use Run scan when you want to refresh discovery, or enable automatic scanning for continuous checks.{% endif %}</span>
+      <span>{% if monitoring.auto_scan_enabled %}SentinelLAN checks your local network every {{ monitoring.scan_interval_seconds }} seconds while the monitor service is running. New devices enter your review queue and raise an alert.{% else %}Scan whenever you want a fresh view, or enable automatic scanning for continuous checks.{% endif %}</span>
     </section>
+
+    <section class="secondary-actions" aria-label="More tools"><button type="button" class="secondary-action" data-modal-target="activity-panel"><span>Activity history</span><small>See recent account actions</small></button><a class="secondary-action" href="{% url 'known_devices' %}"><span>Known devices</span><small>Manage trusted inventory</small></a></section>
 
   </main>
 
   {% include "devices/notifications_popup.html" with alerts=alerts new_device_alert_count=new_device_alert_count %}
   {% include "devices/user_activities_popup.html" with recent_activities=recent_activities %}
 
-  <script>
-    const notificationButton = document.querySelector('.hero-action.notifications');
-    const notificationStorageKey = 'netwatch.notificationCount';
-
-    function speakNotification(message) {
-      if (!('speechSynthesis' in window)) return;
-
-      try {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(message);
-        utterance.lang = 'en-US';
-        utterance.rate = 1.02;
-        utterance.pitch = 1.05;
-        utterance.volume = 0.9;
-        window.speechSynthesis.speak(utterance);
-      } catch (error) {
-        console.warn('Voice notification unavailable', error);
-      }
-    }
-
-    function playNotificationSound(force = false) {
-      const countElement = document.querySelector('.hero-action.notifications strong');
-      const count = Number(countElement?.textContent?.trim() || 0);
-      const previousCount = Number(window.localStorage.getItem(notificationStorageKey) || 0);
-
-      if (count <= 0) {
-        window.localStorage.setItem(notificationStorageKey, '0');
-        return;
-      }
-
-      if (!force && count <= previousCount) {
-        window.localStorage.setItem(notificationStorageKey, String(count));
-        return;
-      }
-
-      try {
-        const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-        if (AudioContextCtor) {
-          const audioContext = new AudioContextCtor();
-          const oscillator = audioContext.createOscillator();
-          const gainNode = audioContext.createGain();
-          oscillator.type = 'sine';
-          oscillator.frequency.value = 880;
-          gainNode.gain.value = 0.04;
-          oscillator.connect(gainNode);
-          gainNode.connect(audioContext.destination);
-          oscillator.start();
-          oscillator.stop(audioContext.currentTime + 0.18);
-          gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.2);
-          setTimeout(() => audioContext.close(), 220);
-        }
-      } catch (error) {
-        console.warn('Notification sound unavailable', error);
-      }
-
-      const message = count === 1 ? 'You have one new notification.' : `You have ${count} new notifications.`;
-      speakNotification(message);
-      window.localStorage.setItem(notificationStorageKey, String(count));
-    }
-
-    document.querySelectorAll('[data-modal-target]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const target = document.getElementById(button.dataset.modalTarget);
-        if (target) {
-          target.classList.add('is-open');
-          if (button === notificationButton) {
-            playNotificationSound(true);
-          }
-        }
-      });
-    });
-
-    if (notificationButton) {
-      notificationButton.addEventListener('click', () => playNotificationSound(true));
-    }
-
-    window.addEventListener('load', () => playNotificationSound(false));
-
-    document.querySelectorAll('.popup-overlay').forEach((overlay) => {
-      overlay.addEventListener('click', (event) => {
-        if (event.target === overlay) overlay.classList.remove('is-open');
-      });
-    });
-
-    document.querySelectorAll('.popup-close').forEach((button) => {
-      button.addEventListener('click', () => {
-        const overlay = button.closest('.popup-overlay');
-        if (overlay) overlay.classList.remove('is-open');
-      });
-    });
-
-    if (document.body.dataset.autoScan === "true") {
-      const interval = Number(document.body.dataset.interval) * 1000;
-      const token = document.querySelector("[name=csrfmiddlewaretoken]").value;
-      window.setInterval(async () => {
-        const response = await fetch("{% url 'run_network_scan' %}", {method: "POST", headers: {"X-CSRFToken": token, "X-Requested-With": "XMLHttpRequest"}});
-        if (response.ok) window.location.reload();
-      }, interval);
-    }
-  </script>
+  <script src="{% static 'devices/dashboard.js' %}"></script>
 </body>
 </html>

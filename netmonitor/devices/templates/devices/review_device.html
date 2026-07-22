@@ -1,26 +1,9 @@
 {% load static %}
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Review device | NetWatch</title><link rel="stylesheet" href="{% static 'devices/auth.css' %}"><link rel="stylesheet" href="{% static 'devices/dashboard.css' %}"></head>
-<body><main class="form-shell"><a class="wordmark" href="{% url 'dashboard' %}">Net<span>Watch</span></a><section class="form-card wide"><p class="eyebrow">Device review</p><h1>Identify this device</h1><p class="intro">It was discovered at <strong>{{ device.ip_address }}</strong> with MAC address <code>{{ device.mac_address }}</code>. Add details before approving it for your known inventory.</p><form method="post">{% csrf_token %}{% for field in form %}<p class="field">{{ field.label_tag }}{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="error">{{ error }}</small>{% endfor %}</p>{% endfor %}<button type="submit">Save device details</button></form><div class="review-actions"><a class="muted-link" href="{% url 'dashboard' %}">Back to dashboard</a><button type="button" class="secondary-action review-popup" data-modal-target="activity-panel">Open activity timeline</button></div></section></main>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Identify device | SentinelLAN</title><link rel="stylesheet" href="{% static 'devices/auth.css' %}"><link rel="stylesheet" href="{% static 'devices/dashboard.css' %}"></head>
+<body><main class="form-shell"><a class="wordmark" href="{% url 'dashboard' %}">Sentinel<span>LAN</span></a><section class="form-card wide"><p class="eyebrow">Device review</p><h1>Do you recognize this device?</h1><p class="intro">SentinelLAN found it at <strong>{{ device.ip_address }}</strong> with MAC address <code>{{ device.mac_address }}</code>. Give it a familiar name, choose its type, then mark it as trusted only if you recognize it.</p><form method="post">{% csrf_token %}<input type="hidden" name="return_to" value="{{ return_page }}">{% for field in form %}<p class="field">{{ field.label_tag }}{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="error">{{ error }}</small>{% endfor %}</p>{% endfor %}<button type="submit">Save device</button></form><div class="review-actions"><a class="muted-link" href="{% url return_page %}">Cancel and go back</a><button type="button" class="secondary-action review-popup" data-modal-target="activity-panel">Open activity history</button></div></section></main>
 
 {% include "devices/notifications_popup.html" with alerts=alerts new_device_alert_count=new_device_alert_count %}
 {% include "devices/user_activities_popup.html" with recent_activities=recent_activities %}
 
-<script>
-  document.querySelectorAll('[data-modal-target]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const target = document.getElementById(button.dataset.modalTarget);
-      if (target) {
-        target.classList.add('is-open');
-      }
-    });
-  });
-  document.querySelectorAll('.popup-overlay').forEach((overlay) => {
-    overlay.addEventListener('click', (event) => {
-      if (event.target === overlay) overlay.classList.remove('is-open');
-    });
-  });
-  document.querySelectorAll('.popup-close').forEach((button) => {
-    button.addEventListener('click', () => button.closest('.popup-overlay').classList.remove('is-open'));
-  });
-</script>
+<script src="{% static 'devices/dashboard.js' %}"></script>
 </body></html>

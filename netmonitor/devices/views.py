@@ -47,7 +47,7 @@ def logout_view(request):
 
 def _get_dashboard_context(request):
     known_devices = Device.objects.filter(trusted=True).order_by("-online", "-last_seen")
-    discovered_devices = Device.objects.filter(trusted=False).order_by("-last_seen")
+    discovered_devices = Device.objects.filter(trusted=False, dismissed=False).order_by("-first_seen", "-last_seen")
     unresolved_alerts = Alert.objects.filter(resolved=False).select_related("device")
     recent_activities = UserActivity.objects.select_related("user").order_by("-timestamp")[:50]
     return {
@@ -56,6 +56,7 @@ def _get_dashboard_context(request):
         "alerts": unresolved_alerts.order_by("-created_at")[:8],
         "known_count": known_devices.count(),
         "discovered_count": discovered_devices.count(),
+        "recent_discovered_devices": discovered_devices[:3],
         "online_count": Device.objects.filter(online=True).count(),
         "new_device_alert_count": unresolved_alerts.filter(alert_type="NEW_DEVICE").count(),
         "total_count": Device.objects.count(),
@@ -106,7 +107,11 @@ def known_devices(request):
 
 @login_required
 def discovered_devices(request):
-    discovered_devices = Device.objects.filter(trusted=False, dismissed=False).order_by("-first_seen", "-last_seen")
+    show_dismissed = request.GET.get("show") == "dismissed"
+    discovered_devices = Device.objects.filter(
+        trusted=False,
+        dismissed=show_dismissed,
+    ).order_by("-first_seen", "-last_seen")
     search_query = (request.GET.get("search") or "").strip()
     device_type = (request.GET.get("device_type") or "").strip()
 
@@ -134,6 +139,8 @@ def discovered_devices(request):
         "search_query": search_query,
         "device_type": device_type,
         "device_types": Device.DEVICE_TYPES,
+        "show_dismissed": show_dismissed,
+        "dismissed_count": Device.objects.filter(trusted=False, dismissed=True).count(),
     }
     return render(request, "devices/discovered_devices.html", context)
 
@@ -145,6 +152,7 @@ def approve_device(request, device_id):
     device.trusted = True
     device.dismissed = False
     device.save(update_fields=["trusted", "dismissed"])
+    messages.success(request, f"{device.hostname or device.ip_address} is now a known device.")
     return redirect("discovered_devices")
 
 
@@ -155,6 +163,17 @@ def ignore_device(request, device_id):
     device.dismissed = True
     device.trusted = False
     device.save(update_fields=["dismissed", "trusted"])
+    messages.success(request, f"{device.hostname or device.ip_address} was dismissed. You can restore it from Dismissed devices.")
+    return redirect("discovered_devices")
+
+
+@login_required
+@require_POST
+def restore_device(request, device_id):
+    device = get_object_or_404(Device, pk=device_id, trusted=False)
+    device.dismissed = False
+    device.save(update_fields=["dismissed"])
+    messages.success(request, f"{device.hostname or device.ip_address} was returned to the review queue.")
     return redirect("discovered_devices")
 
 
@@ -195,6 +214,9 @@ def toggle_auto_scan(request):
 @login_required
 @require_http_methods(["GET", "POST"])
 def review_device(request, device_id):
+    return_page = request.POST.get("return_to") or request.GET.get("next")
+    if return_page not in {"dashboard", "discovered_devices", "known_devices"}:
+        return_page = "dashboard"
     device = get_object_or_404(Device, pk=device_id)
     form = DeviceReviewForm(
         request.POST or None,
@@ -211,7 +233,7 @@ def review_device(request, device_id):
             messages.success(request, f"{device.hostname or device.mac_address} is now a known device.")
         else:
             messages.success(request, "Device details updated.")
-        return redirect("dashboard")
+        return redirect(return_page)
 
     unresolved_alerts = Alert.objects.filter(resolved=False).select_related("device")
     recent_activities = UserActivity.objects.select_related("user").order_by("-timestamp")[:50]
@@ -222,6 +244,7 @@ def review_device(request, device_id):
         "alerts": unresolved_alerts.order_by("-created_at")[:8],
         "new_device_alert_count": unresolved_alerts.filter(alert_type="NEW_DEVICE").count(),
         "recent_activities": recent_activities,
+        "return_page": return_page,
     }
     return render(request, "devices/review_device.html", context)
 

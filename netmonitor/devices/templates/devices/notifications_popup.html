@@ -1,16 +1,16 @@
 {% load static %}
-<div id="notifications-panel" class="popup-overlay" role="dialog" aria-modal="true" aria-label="Notifications">
+<div id="notifications-panel" class="popup-overlay" role="dialog" aria-modal="true" aria-labelledby="notifications-title">
   <div class="popup-card">
     <div class="popup-head">
       <div>
         <p class="eyebrow">Notifications</p>
-        <h3>Alert center</h3>
+        <h3 id="notifications-title">Alert center</h3>
       </div>
       <button type="button" class="popup-close" aria-label="Close notifications">×</button>
     </div>
     <div class="popup-body">
       {% if alerts %}
-        <form action="{% url 'clear_all_alerts' %}" method="post" class="popup-clear-form">{% csrf_token %}<button type="submit" class="tiny-btn clear-all">Clear all</button></form>
+        <form action="{% url 'clear_all_alerts' %}" method="post" class="popup-clear-form">{% csrf_token %}<button type="submit" class="tiny-btn clear-all">Resolve all</button></form>
         <div class="popup-list">
           {% for alert in alerts %}
             <article class="popup-item accent">
