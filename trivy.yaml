@@ -1,0 +1,23 @@
+# SentinelLAN's shared local and CI security policy.
+format: table
+exit-code: 1
+severity:
+  - HIGH
+  - CRITICAL
+
+scan:
+  scanners:
+    - vuln
+    - secret
+    - misconfig
+  skip-dirs:
+    - .git
+    - .trivycache
+    - myvenv
+    - venv
+    - .venv
+    - "**/__pycache__"
+
+vulnerability:
+  # Do not block a change when no upstream remediation exists yet.
+  ignore-unfixed: true

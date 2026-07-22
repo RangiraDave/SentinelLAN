@@ -7,6 +7,9 @@ venv/
 .venv/
 
 # Local Django configuration and data
+.env
+.env.*
+!.env.example
 netmonitor/.env
 netmonitor/db.sqlite3
 
@@ -14,6 +17,8 @@ netmonitor/db.sqlite3
 .pytest_cache/
 .coverage
 htmlcov/
+.trivycache/
+trivy-results.*
 
 # Editor and operating-system files
 .vscode/
